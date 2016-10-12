@@ -1,39 +1,9 @@
 #pragma once
 #include <string>
+#include "Game.h"
 
 namespace Api
 {
-
-enum class CurrentGameState
-{
-    GameNotStarted = 0,
-    RedWon = 1,
-    YellowWon = 2,
-    RedToPlay = 3,
-    YellowToPlay = 4,
-    Draw = 5
-};
-
-enum class CellContent
-{
-    Empty = 0,
-    Red = 1,
-    Yellow = 2
-};
-
-struct Game
-{
-    static const int NUMBER_OF_COLUMNS = 7;
-    static const int NUMBER_OF_ROWS = 6;
-
-    CellContent Cells[NUMBER_OF_COLUMNS][NUMBER_OF_ROWS];
-
-    CurrentGameState CurrentState;
-    std::string YellowPlayerID;
-    std::string RedPlayerID;
-    std::string ID;
-    std::string PlayerID;
-};
 
 const std::string passwordParam("password");
 const std::string playerIDParam("playerID");
@@ -52,11 +22,41 @@ const std::string columnNumberParam("columnNumber");
 // NewGame
 const std::string newGameApi("/api/NewGame");
 
-bool Init();
-std::string RegisterTeam(const std::string& teamName, const std::string& password);
-bool GameState(const std::string& playerID, Game& game);
-bool MakeMove(const std::string& playerID, const std::string& password, int columnNumber);
-bool NewGame(const std::string& playerID);
-std::string GetStatusString(Api::Game& game, bool& finished);
+class Player
+{
+public:
+    virtual bool GetNextMove(Game& game) = 0;
+    virtual bool AddMove(Game& game, int columnNumber) = 0;
+    virtual bool NewGame(Game& game) = 0;
+    virtual bool Valid() { return true; }
+    virtual std::string GetOpponentID() { return "Player"; }
+};
+
+class BotPlayer : public Player
+{
+public:
+    BotPlayer(const std::string& teamName, const std::string& password);
+
+    virtual bool Valid() override { return !clientID.empty(); }
+    virtual bool GetNextMove(Game& game);
+    virtual bool AddMove(Game& game, int columnNumber) override;
+    virtual bool NewGame(Game& game) override;
+    virtual std::string GetOpponentID() { return clientID; }
+private:
+    std::string password;
+    std::string clientID;
+};
+
+class HumanPlayer : public Player
+{
+public:
+    HumanPlayer();
+
+    virtual bool GetNextMove(Game& game);
+    virtual bool AddMove(Game& game, int columnNumber) override;
+    virtual bool NewGame(Game& game) override;
+private:
+};
+
 
 }

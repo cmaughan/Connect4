@@ -4,6 +4,8 @@ PROJECT (Connect4)
 # Sources
 SET(SOURCES
     main.cpp
+    Game.cpp
+    Game.h
     api.cpp
     api.h
     DrawWindow.cpp

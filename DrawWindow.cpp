@@ -9,10 +9,10 @@ RECT WinRect;
 const int WinSize = 512;
 const int TextAreaSize = 50;
 const int WinBorder = 6;
-Api::Game gameView;
+Game gameView;
 std::mutex viewMutex;
 
-void SetGame(const Api::Game& game)
+void SetGame(const Game& game)
 {
     std::lock_guard<std::mutex> lock(viewMutex);
     gameView = game;
@@ -41,10 +41,10 @@ VOID OnPaint(HDC hdc)
     int CircleArea = BoardWidth - WinBorder * 2;
     int CircleOrigin = WinBorder * 2;
     int circleSize = int(CircleArea / 7.5f);
-    int circleRemainX = CircleArea - (circleSize * Api::Game::NUMBER_OF_COLUMNS);
-    int circleRemainY = CircleArea - (circleSize * Api::Game::NUMBER_OF_ROWS);
-    int circlePadX = circleRemainX / (Api::Game::NUMBER_OF_COLUMNS - 1);
-    int circlePadY = circleRemainY / (Api::Game::NUMBER_OF_ROWS - 1);
+    int circleRemainX = CircleArea - (circleSize * Game::NUMBER_OF_COLUMNS);
+    int circleRemainY = CircleArea - (circleSize * Game::NUMBER_OF_ROWS);
+    int circlePadX = circleRemainX / (Game::NUMBER_OF_COLUMNS - 1);
+    int circlePadY = circleRemainY / (Game::NUMBER_OF_ROWS - 1);
     SolidBrush blueBrush(Color::Blue);
     SolidBrush redBrush(Color::Red);
     SolidBrush yellowBrush(Color::Yellow);
@@ -53,9 +53,9 @@ VOID OnPaint(HDC hdc)
     blueLightBrush.SetWidth(4);
 
     pMemGraphics->FillRectangle(&blueBrush, BoardOrigin, BoardOrigin, BoardWidth, BoardHeight);
-    for (int row = Api::Game::NUMBER_OF_ROWS - 1; row >= 0; row--)
+    for (int row = Game::NUMBER_OF_ROWS - 1; row >= 0; row--)
     {
-        for (int column = 0; column < Api::Game::NUMBER_OF_COLUMNS; column++)
+        for (int column = 0; column < Game::NUMBER_OF_COLUMNS; column++)
         {
             int circleX = CircleOrigin + circleSize * column + circlePadX * column;
             int circleY = CircleOrigin + circleSize * row + circlePadY * row;
@@ -63,15 +63,15 @@ VOID OnPaint(HDC hdc)
 
             switch (gameView.Cells[column][row])
             {
-            case Api::CellContent::Empty:
+            case CellContent::Empty:
                 pMemGraphics->FillEllipse(&whiteBrush, circleX, circleY, circleSize, circleSize);
                 pMemGraphics->DrawEllipse(&blueLightBrush, circleX, circleY, circleSize, circleSize);
                 break;
-            case Api::CellContent::Red:
+            case CellContent::Red:
                 pMemGraphics->FillEllipse(&redBrush, circleX, circleY, circleSize, circleSize);
                 pMemGraphics->DrawEllipse(&blueLightBrush, circleX, circleY, circleSize, circleSize);
                 break;
-            case Api::CellContent::Yellow:
+            case CellContent::Yellow:
                 pMemGraphics->FillEllipse(&yellowBrush, circleX, circleY, circleSize, circleSize);
                 pMemGraphics->DrawEllipse(&blueLightBrush, circleX, circleY, circleSize, circleSize);
                 break;
@@ -80,7 +80,7 @@ VOID OnPaint(HDC hdc)
     }
 
     bool finished;
-    auto statusText = Api::GetStatusString(gameView, finished);
+    auto statusText = gameView.GetStatusString(finished);
     pMemGraphics->DrawString(std::wstring(statusText.begin(), statusText.end()).c_str(), statusText.length(), &font, PointF(REAL(BoardOrigin), REAL(BoardOrigin + BoardHeight)), &whiteBrush);
     graphics.DrawImage(pMemBitmap, 0, 0);
     delete pMemBitmap;

@@ -11,20 +11,14 @@ namespace Api
 
 const std::string site("yorkdojoconnect4.azurewebsites.net");
 
-bool Init()
+BotPlayer::BotPlayer(const std::string& teamName, const std::string& password)
 {
 #ifdef WIN32
     auto wVersionRequested = MAKEWORD(2, 2);
     WSAData wsaData;
     int ret = WSAStartup(wVersionRequested, &wsaData);
-    return ret == 0;
-#else
-    return true;
 #endif
-}
 
-std::string RegisterTeam(const std::string& teamName, const std::string& password)
-{
     UrlRequest request;
     request.host(site.c_str());
     request.uri(registerApi.c_str(),
@@ -43,27 +37,26 @@ std::string RegisterTeam(const std::string& teamName, const std::string& passwor
             // Unquote the response
             body = body.erase(0, 1);
             body = body.erase(body.size() - 1);
-            return body;
+            clientID = body;
         }
         else
         {
             cout << "status code = " << response.statusCode() << ", description = " << response.statusDescription() << endl;
-            return "";
         }
     }
     catch (std::exception&)
     {
-        return "";
     }
+    this->password = password;
 }
 
-bool GameState(const std::string& playerID, Game& game)
+bool BotPlayer::GetNextMove(Game& game)
 {
     UrlRequest request;
     request.host(site.c_str());
     request.uri(getGameApi.c_str(),
     {
-        {playerIDParam.c_str(), playerID}
+        {playerIDParam.c_str(), clientID}
     });
     request.addHeader("Content-Type: application/json\nContent-Length: 0");
     try
@@ -73,7 +66,6 @@ bool GameState(const std::string& playerID, Game& game)
         {
             std::string body = response.body();
             auto gameData = json::parse(body);
-            game.PlayerID = playerID;
             game.CurrentState = CurrentGameState(gameData["CurrentState"].get<int>());
             game.YellowPlayerID = gameData["YellowPlayerID"].get<std::string>();
             game.RedPlayerID = gameData["RedPlayerID"].get<std::string>();
@@ -100,13 +92,13 @@ bool GameState(const std::string& playerID, Game& game)
         return "";
     }
 }
-bool MakeMove(const std::string& playerID, const std::string& password, int column)
+bool BotPlayer::AddMove(Game& game, int column)
 {
     UrlRequest request;
     request.host(site.c_str());
     request.uri(makeMoveApi.c_str(),
     {
-        {playerIDParam.c_str(), playerID},
+        {playerIDParam.c_str(), clientID},
         {passwordParam.c_str(), password},
         {columnNumberParam.c_str(), column},
     });
@@ -131,13 +123,13 @@ bool MakeMove(const std::string& playerID, const std::string& password, int colu
     }
 }
 
-bool NewGame(const std::string& playerID)
+bool BotPlayer::NewGame(Game& game)
 {
     UrlRequest request;
     request.host(site.c_str());
     request.uri(newGameApi.c_str(),
     {
-        {playerIDParam.c_str(), playerID}
+        {playerIDParam.c_str(), clientID}
     });
     request.method("POST");
     request.addHeader("Content-Type: application/json\nContent-Length: 0");
@@ -160,67 +152,59 @@ bool NewGame(const std::string& playerID)
     }
 }
 
-std::string GetStatusString(Api::Game& game, bool& finished)
+
+
+HumanPlayer::HumanPlayer()
 {
-    switch (game.CurrentState)
+}
+ 
+bool HumanPlayer::GetNextMove(Game& game)
+{
+    /*
+    if (game.CurrentState == CurrentGameState::YellowToPlay)
     {
-    case Api::CurrentGameState::YellowToPlay:
-        finished = false;
-        if (game.PlayerID == game.YellowPlayerID)
-        {
-            return "Our move (Yellow)";
-        }
-        else
-        {
-            return "Their move (Yellow)";
-        }
-        break;
-    case Api::CurrentGameState::RedToPlay:
-        finished = false;
-        if (game.PlayerID == game.RedPlayerID)
-        {
-            return "Our move (Red)";
-        }
-        else
-        {
-            return "Their move (Red)";
-        }
-        break;
-    case Api::CurrentGameState::Draw:
-        finished = true;
-        return "Draw";
-        break;
-    case Api::CurrentGameState::GameNotStarted:
-        finished = false;
-        return "Not Started";
-        break;
-    case Api::CurrentGameState::RedWon:
-        finished = true;
-        if (game.PlayerID == game.RedPlayerID)
-        {
-            return "We Won (Red)";
-        }
-        else
-        {
-            return "We Lost (Yellow)";
-        }
-        break;
-    case Api::CurrentGameState::YellowWon:
-        finished = true;
-        if (game.PlayerID == game.YellowPlayerID)
-        {
-            return "We Won (Yellow)";
-        }
-        else
-        {
-            return "We Lost (Red)";
-        }
-        break;
-    default:
-        break;
+        
     }
-    finished = true;
-    return "";
+    */
+    return true;
+}
+
+bool HumanPlayer::AddMove(Game& game, int columnNumber)
+{
+    for (int row = 0; row < Game::NUMBER_OF_ROWS; row++)
+    {
+        if (game.Cells[columnNumber][row] == CellContent::Empty)
+        {
+            if (game.CurrentState == CurrentGameState::YellowToPlay)
+            {
+                game.Cells[columnNumber][row] = CellContent::Yellow;
+                game.CurrentState = CurrentGameState::RedToPlay;
+            }
+            else
+            {
+                game.Cells[columnNumber][row] = CellContent::Red;
+                game.CurrentState = CurrentGameState::YellowToPlay;
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+bool HumanPlayer::NewGame(Game& game)
+{
+    for (int column = 0; column < Game::NUMBER_OF_COLUMNS; column++)
+    {
+        for (int row = 0; row < Game::NUMBER_OF_ROWS; row++)
+        {
+            game.Cells[column][row] = CellContent::Empty;
+        }
+    }
+    game.CurrentState = (rand() % 2) == 0 ? CurrentGameState::YellowToPlay : CurrentGameState::RedToPlay;
+    game.YellowPlayerID = "Yellow";
+    game.RedPlayerID = "Red";
+    game.ID = "Game";
+    return true;
 }
 
 }

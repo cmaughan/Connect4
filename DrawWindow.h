@@ -5,5 +5,5 @@
 #include <gdiplus.h>
 #include "Api.h"
 
-void SetGame(const Api::Game& game);
+void SetGame(const Game& game);
 void CreateGameWindow();
