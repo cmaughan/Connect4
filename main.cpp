@@ -65,6 +65,7 @@ bool PlayMove(Api::Player* player, Game& game)
         return false;
     
     auto playColor = game.CurrentState == CurrentGameState::YellowToPlay ? CellContent::Yellow : CellContent::Red;
+    auto invPlayColor = game.CurrentState == CurrentGameState::YellowToPlay ? CellContent::Red : CellContent::Yellow;
 
     for (unsigned int index = 0; index < moves.size(); index++)
     {
@@ -74,6 +75,33 @@ bool PlayMove(Api::Player* player, Game& game)
 
         std::cout << "Move on column: " << move.column << std::endl;
         move.score = game.EvaluatePosition();
+
+        // If not the winning move, then look at the next move of the opposing player
+        if (move.score < Game::WON_VALUE)
+        {
+            int bestScore = -1;
+            auto moves2 = game.GetValidMoves();
+            if (!moves2.empty())
+            {
+                game.CurrentState = game.CurrentState == CurrentGameState::YellowToPlay ? CurrentGameState::RedToPlay : CurrentGameState::YellowToPlay;
+                for (unsigned int index2 = 0; index2 < moves2.size(); index2++)
+                {
+                    auto& move2 = moves2[index2];
+                    auto previousValue2 = game.Cells[move2.column][move2.row];
+                    game.Cells[move2.column][move2.row] = invPlayColor;
+
+                    int playScore = game.EvaluatePosition();
+                    if (playScore > bestScore)
+                    {
+                        bestScore = playScore;
+                    }
+
+                    game.Cells[move2.column][move2.row] = previousValue;
+                }
+                game.CurrentState = game.CurrentState == CurrentGameState::YellowToPlay ? CurrentGameState::RedToPlay : CurrentGameState::YellowToPlay;
+            }
+            move.score -= bestScore;
+        }
 
         game.Cells[move.column][move.row] = previousValue;
     }

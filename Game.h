@@ -50,8 +50,10 @@ struct Game
     int EvaluateWorm(Worm& worm);
     void GetVerticalWorm(Worm& worm, CellContent player, int column);
     void GetHorizontalWorm(Worm& worm, CellContent currentPlayer, int column);
+    void GetDiagonalWorm(Worm& worm, CellContent currentPlayer, int column, bool forward);
     static const int NUMBER_OF_COLUMNS = 7;
     static const int NUMBER_OF_ROWS = 6;
+    static const int WON_VALUE = 1000000;
 
     CellContent Cells[NUMBER_OF_COLUMNS][NUMBER_OF_ROWS];
     int EvalNum[NUMBER_OF_COLUMNS][NUMBER_OF_ROWS];

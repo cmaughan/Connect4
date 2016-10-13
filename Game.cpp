@@ -21,7 +21,7 @@ std::vector<Location> Game::GetValidMoves()
         {
             if (Cells[column][row] == CellContent::Empty)
             {
-                moves.push_back(Location{ column, row, 0});
+                moves.push_back(Location{ column, row, 0 });
                 break;
             }
         }
@@ -53,12 +53,15 @@ int Game::EvaluateWorm(Worm& worm)
             continuousString++;
             if (continuousString == 4)
             {
-                return 1000000;
+                return WON_VALUE + score;
+            }
+            else
+            {
+                score += (continuousString * continuousString * continuousString * 10);
             }
         }
     }
-    score += (numCounters * numCounters * numCounters * 10);
-    score += (numEmpty *  1);
+    score += (numEmpty * 1);
     return score;
 }
 
@@ -100,11 +103,11 @@ void Game::GetHorizontalWorm(Worm& worm, CellContent currentPlayer, int column)
 {
     worm.length = 0;
     int row = Game::NUMBER_OF_ROWS - 1;
-    for (; row >=0; row--)
+    for (; row >= 0; row--)
     {
         if (EvalNum[column][row] == EvalCount)
         {
-           return;
+            return;
         }
         if (Cells[column][row] == CellContent::Empty)
         {
@@ -167,6 +170,55 @@ void Game::GetHorizontalWorm(Worm& worm, CellContent currentPlayer, int column)
     }
 }
 
+void Game::GetDiagonalWorm(Worm& worm, CellContent currentPlayer, int column, bool forward)
+{
+    worm.length = 0;
+    int row = Game::NUMBER_OF_ROWS - 1;
+    for (; row >= 0; row--)
+    {
+        if (EvalNum[column][row] == EvalCount)
+        {
+            return;
+        }
+        if (Cells[column][row] == CellContent::Empty)
+        {
+            continue;
+        }
+        else if (Cells[column][row] != currentPlayer)
+        {
+            return;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    if (row < 0)
+    {
+        return;
+    }
+
+    int stepDir = forward ? 1 : -1;
+    for (int backColumn = column + stepDir, backRow = row - 1;
+        backColumn >= 0 && backColumn < Game::NUMBER_OF_COLUMNS && backRow >= 0;
+        backColumn += stepDir, backRow--)
+    {
+        if (Cells[backColumn][backRow] == CellContent::Empty ||
+            Cells[backColumn][backRow] == currentPlayer)
+        {
+            worm.cells[worm.length++] = Cells[backColumn][backRow];
+            EvalNum[backColumn][backRow] = EvalCount;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    worm.cells[worm.length++] = currentPlayer;
+}
+
 int Game::EvaluatePosition()
 {
     int score = 0;
@@ -174,6 +226,7 @@ int Game::EvaluatePosition()
 
     Worm vWorm;
     Worm hWorm;
+    Worm dWorm;
 
     EvalCount++;
     for (int column = 0; column < Game::NUMBER_OF_COLUMNS; column++)
@@ -200,9 +253,29 @@ int Game::EvaluatePosition()
         {
             hWormScore = EvaluateWorm(hWorm);
         }
-        
+
         std::cout << "C" << std::to_string(column) << " : HWorm: " << hWormScore << std::endl;
         score += hWormScore;
+    }
+
+    EvalCount++;
+    for (int column = 0; column < Game::NUMBER_OF_COLUMNS; column++)
+    {
+        int dWormScore = 0;
+        GetDiagonalWorm(dWorm, currentPlayer, column, false);
+        if (dWorm.length > 0)
+        {
+            dWormScore += EvaluateWorm(dWorm);
+        }
+
+        GetDiagonalWorm(dWorm, currentPlayer, column, true);
+        if (dWorm.length > 0)
+        {
+            dWormScore += EvaluateWorm(dWorm);
+        }
+        dWormScore /= 2;
+        std::cout << "C" << std::to_string(column) << " : DWorm: " << dWormScore << std::endl;
+        score += dWormScore;
     }
     return score;
 }
