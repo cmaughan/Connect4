@@ -82,6 +82,8 @@ VOID OnPaint(HDC hdc)
     bool finished;
     auto statusText = gameView.GetStatusString(finished);
     pMemGraphics->DrawString(std::wstring(statusText.begin(), statusText.end()).c_str(), statusText.length(), &font, PointF(REAL(BoardOrigin), REAL(BoardOrigin + BoardHeight)), &whiteBrush);
+    pMemGraphics->DrawString(std::wstring(gameView.YellowPlayerName.begin(), gameView.YellowPlayerName.end()).c_str(), gameView.YellowPlayerName.length(), &font, PointF(REAL(BoardOrigin), REAL(BoardOrigin + BoardHeight + 20)), &whiteBrush);
+    pMemGraphics->DrawString(std::wstring(gameView.RedPlayerName.begin(), gameView.RedPlayerName.end()).c_str(), gameView.RedPlayerName.length(), &font, PointF(REAL(BoardOrigin), REAL(BoardOrigin + BoardHeight + 40)), &whiteBrush);
     graphics.DrawImage(pMemBitmap, 0, 0);
     delete pMemBitmap;
     delete pMemGraphics;

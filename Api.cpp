@@ -69,7 +69,18 @@ bool BotPlayer::GetNextMove(Game& game)
             game.CurrentState = CurrentGameState(gameData["CurrentState"].get<int>());
             game.YellowPlayerID = gameData["YellowPlayerID"].get<std::string>();
             game.RedPlayerID = gameData["RedPlayerID"].get<std::string>();
+            if (game.RedPlayerID == clientID)
+            {
+                game.RedPlayerName = "Red: Bot opponent";
+                game.YellowPlayerName = "Yellow: Bot";
+            }
+            else
+            {
+                game.RedPlayerName = "Red: Bot";
+                game.YellowPlayerName = "Yellow: Bot_opponent";
+            }
             game.ID = gameData["ID"].get<std::string>();
+
 
             auto cells = gameData["Cells"];
             for (int column = 0; column < Game::NUMBER_OF_COLUMNS; column++)
