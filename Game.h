@@ -34,6 +34,17 @@ struct Location
     }
 };
 
+struct Node 
+{
+    Location location;
+    std::vector<Node> children;
+    
+    bool operator < (const Node& node)const
+    {
+        return location < node.location;
+    }
+};
+
 struct Worm
 {
     CellContent cells[7];
@@ -53,6 +64,7 @@ struct Game
     void GetDiagonalWorm(Worm& worm, CellContent currentPlayer, int column, bool forward);
     CellContent GetCurrentPlayer() const { return CurrentState == CurrentGameState::YellowToPlay ? CellContent::Yellow : CellContent::Red; };
     CellContent GetOtherPlayer(CellContent player) const { return player == CellContent::Yellow ? CellContent::Red : CellContent::Yellow; };
+    void SwapPlayer() { CurrentState = (CurrentState == CurrentGameState::YellowToPlay ? CurrentGameState::RedToPlay : CurrentGameState::YellowToPlay); }
     int FindFirstColumnRow(int column, CellContent player);
     static const int NUMBER_OF_COLUMNS = 7;
     static const int NUMBER_OF_ROWS = 6;

@@ -13,9 +13,15 @@
 #include "DrawWindow.h"
 #endif
 
+// Put your team and password here
 const std::string password("Foobar2");
 const std::string teamName("Morninator");
 
+// Bigger search depth takes longer
+const int MaxDepth = 7;
+
+// ASCII Art version of the board
+// On Windows you get the fancy one....
 void PrintBoard(Game& game)
 {
     SetGame(game);
@@ -57,89 +63,93 @@ void PrintBoard(Game& game)
     std::cout << str.str();
 }
 
-bool PlayMove(Api::Player* player, Game& game)
+// Build a move tree
+bool GenerateMove(Api::Player* player, Game& game, Node& node, int depth)
 {
     auto moves = game.GetValidMoves();
 
     if (moves.empty())
         return false;
-    
-    auto playColor = game.CurrentState == CurrentGameState::YellowToPlay ? CellContent::Yellow : CellContent::Red;
-    auto invPlayColor = game.CurrentState == CurrentGameState::YellowToPlay ? CellContent::Red : CellContent::Yellow;
 
+    // Score + or - depending on player or opponent's turn
+    auto scoreMult = (depth & 1) ? -1 : 1;
+    auto playColor = game.GetCurrentPlayer();
     for (unsigned int index = 0; index < moves.size(); index++)
     {
         auto& move = moves[index];
+
+        // Modify the game
         auto previousValue = game.Cells[move.column][move.row];
         game.Cells[move.column][move.row] = playColor;
 
-        std::cout << "Move on column: " << move.column << std::endl;
-        move.score = game.EvaluatePosition();
+        // ... evaluate it.  More weight to less deep moves
+        move.score = int((game.EvaluatePosition() * scoreMult) / float(depth + 1));
+        Node childNode;
+        childNode.location = move;
+        node.children.push_back(childNode);
 
-        // If not the winning move, then look at the next move of the opposing player
-        if (move.score < Game::WON_VALUE)
+        // Next level down
+        if (depth < MaxDepth)
         {
-            int bestScore = -1;
-            auto moves2 = game.GetValidMoves();
-            if (!moves2.empty())
-            {
-                game.CurrentState = game.CurrentState == CurrentGameState::YellowToPlay ? CurrentGameState::RedToPlay : CurrentGameState::YellowToPlay;
-                for (unsigned int index2 = 0; index2 < moves2.size(); index2++)
-                {
-                    auto& move2 = moves2[index2];
-                    auto previousValue2 = game.Cells[move2.column][move2.row];
-                    game.Cells[move2.column][move2.row] = invPlayColor;
-
-                    int playScore = game.EvaluatePosition();
-                    if (playScore > bestScore)
-                    {
-                        bestScore = playScore;
-                    }
-
-                    game.Cells[move2.column][move2.row] = previousValue;
-                }
-                game.CurrentState = game.CurrentState == CurrentGameState::YellowToPlay ? CurrentGameState::RedToPlay : CurrentGameState::YellowToPlay;
-            }
-            move.score -= bestScore;
+            // Other player
+            game.SwapPlayer();
+            GenerateMove(player, game, node.children[node.children.size() -1], depth + 1);
+            game.SwapPlayer();
         }
 
+        // Add the child score to our own
+        node.location.score += childNode.location.score;
+
+        // Restore board state
         game.Cells[move.column][move.row] = previousValue;
     }
 
-    std::sort(moves.begin(), moves.end());
-
-    std::vector<Location> pickMoves;
-    int count = -1;
-    auto itrSet = moves.rbegin();
-    auto itrSetEnd = moves.rend();
-    while (itrSet != itrSetEnd)
+    // Decided on a move, so play it if this is the root
+    if (depth == 0)
     {
-        if (count == -1)
+        for (auto& node : node.children)
         {
-            count = itrSet->score;
-            pickMoves.push_back(*itrSet);
+            std::cout << "Val: " << node.location.score << std::endl;
         }
-        else
+
+        // Sort low->high score
+        std::sort(node.children.begin(), node.children.end());
+
+        // Pick the best moves
+        std::vector<Location> pickMoves;
+        int count = -1;
+        auto itrSet = node.children.rbegin();
+        auto itrSetEnd = node.children.rend();
+        while (itrSet != itrSetEnd)
         {
-            if (itrSet->score < count)
+            if (count == -1)
             {
-                break;
+                count = itrSet->location.score;
+                pickMoves.push_back(itrSet->location);
             }
-            pickMoves.push_back(*itrSet);
+            else
+            {
+                if (itrSet->location.score < count)
+                {
+                    break;
+                }
+                pickMoves.push_back(itrSet->location);
+            }
+            itrSet++;
         }
-        itrSet++;
-    }
 
-    auto rnd = rand() % pickMoves.size();
+        // Random choice of the remaining best moves
+        auto rnd = rand() % pickMoves.size();
 
-    // Add the play, so we can 'see' it before the server returns
-    if (player->AddMove(game, pickMoves[rnd].column))
-    {
-        game.Cells[pickMoves[rnd].column][pickMoves[rnd].row] = game.CurrentState == CurrentGameState::YellowToPlay ? CellContent::Yellow : CellContent::Red;
-        game.CurrentState = game.CurrentState == CurrentGameState::YellowToPlay ? CurrentGameState::RedToPlay : CurrentGameState::YellowToPlay;
-        return true;
+        // Add the play, so we can 'see' it before the server returns
+        if (player->AddMove(game, pickMoves[rnd].column))
+        {
+            game.Cells[pickMoves[rnd].column][pickMoves[rnd].row] = game.GetCurrentPlayer();
+            // Swap, for UI.
+            game.SwapPlayer();
+        }
     }
-    return false;
+    return true;
 }
 
 int main(int num, void** ppArg)
@@ -164,22 +174,29 @@ int main(int num, void** ppArg)
             return 1;
         }
 
+        // Show the board
         PrintBoard(game);
-        std::this_thread::sleep_for(std::chrono::seconds(1));
 
+        // Get the status to see if we are finished
         bool finished;
         auto statusText = game.GetStatusString(finished);
         if (!finished)
         {
+            // If our turn, play a move
             if (game.IsPlayerTurn(spBotPlayer->GetOpponentID()))
             {
-                PlayMove(spBotPlayer.get(), game);
+                Node root;
+                root.location.score = 0;
+                
+                std::cout << "Thinking...." << std::endl;
+                GenerateMove(spBotPlayer.get(), game, root, 0);
+
             }
             PrintBoard(game);
-            std::this_thread::sleep_for(std::chrono::seconds(1));
         }
         else
         {
+            // Finished, so wait for quit or new
             std::cout << "n for new game, q to quit:";
             auto k = getchar();
             if (k == 'n')
@@ -192,5 +209,4 @@ int main(int num, void** ppArg)
             }
         }
     } while (1);
-
 }

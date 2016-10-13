@@ -236,10 +236,6 @@ int Game::EvaluatePosition()
     for (int column = 0; column < Game::NUMBER_OF_COLUMNS; column++)
     {
         GetDiagonalWorm(worm, currentPlayer, column, false);
-        if (worm.length >= 4)
-        {
-            std::cout << "backdiag: " << std::endl;
-        }
         score += EvaluateWorm(worm);
     }
 
@@ -247,10 +243,6 @@ int Game::EvaluatePosition()
     for (int column = 0; column < Game::NUMBER_OF_COLUMNS; column++)
     {
         GetDiagonalWorm(worm, currentPlayer, column, true);
-        if (worm.length >= 4)
-        {
-            std::cout << "frontdiag: " << std::endl;
-        }
         score += EvaluateWorm(worm);
     }
     return score;
