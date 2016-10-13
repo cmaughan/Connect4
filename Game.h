@@ -51,6 +51,9 @@ struct Game
     void GetVerticalWorm(Worm& worm, CellContent player, int column);
     void GetHorizontalWorm(Worm& worm, CellContent currentPlayer, int column);
     void GetDiagonalWorm(Worm& worm, CellContent currentPlayer, int column, bool forward);
+    CellContent GetCurrentPlayer() const { return CurrentState == CurrentGameState::YellowToPlay ? CellContent::Yellow : CellContent::Red; };
+    CellContent GetOtherPlayer(CellContent player) const { return player == CellContent::Yellow ? CellContent::Red : CellContent::Yellow; };
+    int FindFirstColumnRow(int column, CellContent player);
     static const int NUMBER_OF_COLUMNS = 7;
     static const int NUMBER_OF_ROWS = 6;
     static const int WON_VALUE = 1000000;

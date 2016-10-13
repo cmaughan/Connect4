@@ -1,7 +1,9 @@
 #include "Game.h"
 #include <cstdio>
 #include <iostream>
+#include <sstream>
 
+// EvalNum is an easy way to track visitations of disks during evaluation
 Game::Game()
 {
     for (int column = 0; column < Game::NUMBER_OF_COLUMNS; column++)
@@ -12,6 +14,8 @@ Game::Game()
         }
     }
 }
+
+// All possible move locations for any player
 std::vector<Location> Game::GetValidMoves()
 {
     std::vector<Location> moves;
@@ -29,19 +33,24 @@ std::vector<Location> Game::GetValidMoves()
     return moves;
 }
 
-
+// Given a worm (a string of up to 7 cells that are either empty or the current player type)
+// Calculate a 'score' based on how valuable we think the worm is
 int Game::EvaluateWorm(Worm& worm)
 {
     int score = 0;
     int numCounters = 0;
     int continuousString = 0;
     int numEmpty = 0;
+
+    // Can never win with this worm
     if (worm.length < 4)
     {
         return 0;
     }
+
     for (int i = 0; i < worm.length; i++)
     {
+        // Empties are worth a little
         if (worm.cells[i] == CellContent::Empty)
         {
             numEmpty++;
@@ -49,6 +58,7 @@ int Game::EvaluateWorm(Worm& worm)
         }
         else
         {
+            // Continuous strings of counters are worth exponentially more
             numCounters++;
             continuousString++;
             if (continuousString == 4)
@@ -61,10 +71,13 @@ int Game::EvaluateWorm(Worm& worm)
             }
         }
     }
+
+    // Add the empty bonus
     score += (numEmpty * 1);
     return score;
 }
 
+// Find a vertical worm of the players type on the current column
 void Game::GetVerticalWorm(Worm& worm, CellContent currentPlayer, int column)
 {
     bool foundMe = false;
@@ -91,191 +104,154 @@ void Game::GetVerticalWorm(Worm& worm, CellContent currentPlayer, int column)
             foundMe = false;
             continue;
         }
-
-        if (worm.length >= 7)
-        {
-            return;
-        }
     }
 }
 
+// Find a continous train of horizontal player or empty slots
 void Game::GetHorizontalWorm(Worm& worm, CellContent currentPlayer, int column)
 {
+    // Find a counter at the top of this column
     worm.length = 0;
-    int row = Game::NUMBER_OF_ROWS - 1;
-    for (; row >= 0; row--)
-    {
-        if (EvalNum[column][row] == EvalCount)
-        {
-            return;
-        }
-        if (Cells[column][row] == CellContent::Empty)
-        {
-            continue;
-        }
-        else if (Cells[column][row] != currentPlayer)
-        {
-            return;
-        }
-        else
-        {
-            break;
-        }
-    }
-
-    if (row < 0)
+    auto row = FindFirstColumnRow(column, currentPlayer);
+    if (row < 0 || EvalNum[column][row] == EvalCount)
     {
         return;
     }
 
-    if (column > 0)
+    // Walk back until we find the opposition
+    while (column >= 0 &&
+        (Cells[column][row] != GetOtherPlayer(currentPlayer)))
     {
-        for (int backColumn = column - 1; backColumn >= 0; backColumn--)
-        {
-            if (Cells[backColumn][row] == CellContent::Empty ||
-                Cells[backColumn][row] == currentPlayer)
-            {
-                worm.cells[worm.length++] = Cells[backColumn][row];
-                EvalNum[backColumn][row] = EvalCount;
-            }
-            else
-            {
-                break;
-            }
-        }
+        column--;
     }
+    column++;
 
-    worm.cells[worm.length++] = currentPlayer;
-
-    if (column < Game::NUMBER_OF_COLUMNS - 1)
+    // Remember the chain
+    while (column < Game::NUMBER_OF_COLUMNS)
     {
-        bool stoppedMe = false;
-        for (int forwardColumn = column + 1; forwardColumn < Game::NUMBER_OF_COLUMNS; forwardColumn++)
-        {
-            if (Cells[forwardColumn][row] == CellContent::Empty)
-            {
-                worm.cells[worm.length++] = CellContent::Empty;
-                EvalNum[forwardColumn][row] = EvalCount;
-            }
-            else if (Cells[forwardColumn][row] == currentPlayer)
-            {
-                worm.cells[worm.length++] = currentPlayer;
-                EvalNum[forwardColumn][row] = EvalCount;
-            }
-            else if (Cells[forwardColumn][row] != currentPlayer)
-            {
-                break;
-            }
-        }
-    }
-}
-
-void Game::GetDiagonalWorm(Worm& worm, CellContent currentPlayer, int column, bool forward)
-{
-    worm.length = 0;
-    int row = Game::NUMBER_OF_ROWS - 1;
-    for (; row >= 0; row--)
-    {
-        if (EvalNum[column][row] == EvalCount)
-        {
-            return;
-        }
-        if (Cells[column][row] == CellContent::Empty)
-        {
-            continue;
-        }
-        else if (Cells[column][row] != currentPlayer)
-        {
-            return;
-        }
-        else
+        if (Cells[column][row] == GetOtherPlayer(currentPlayer))
         {
             break;
         }
+        worm.cells[worm.length++] = Cells[column][row];
+        EvalNum[column][row] = EvalCount;
+        column++;
+    }
+}
+
+// Find the first row that the player is in for a given column.
+int Game::FindFirstColumnRow(int column, CellContent player)
+{
+    int row = Game::NUMBER_OF_ROWS - 1;
+    while(row >= 0)
+    {
+        if (player == Cells[column][row])
+        {
+            return row;
+        }
+        else if (GetOtherPlayer(player) == Cells[column][row])
+        {
+            return -1;
+        }
+        row--;
     }
 
-    if (row < 0)
+    return -1;
+}
+
+// Find a continuous row of empty/filled counters of the player's type
+void Game::GetDiagonalWorm(Worm& worm, CellContent currentPlayer, int column, bool forward)
+{
+    worm.length = 0;
+
+    auto row = FindFirstColumnRow(column, currentPlayer);
+    if (row <= 0 || EvalNum[column][row] == EvalCount)
     {
         return;
     }
 
     int stepDir = forward ? 1 : -1;
-    for (int backColumn = column + stepDir, backRow = row - 1;
-        backColumn >= 0 && backColumn < Game::NUMBER_OF_COLUMNS && backRow >= 0;
-        backColumn += stepDir, backRow--)
+
+    // Walk in the step direction until we find something that isn't our counter type
+    while (column < Game::NUMBER_OF_COLUMNS &&
+        column >= 0 &&
+        row < Game::NUMBER_OF_ROWS &&
+        row >= 0)
     {
-        if (Cells[backColumn][backRow] == CellContent::Empty ||
-            Cells[backColumn][backRow] == currentPlayer)
+        auto& cell = Cells[column][row];
+        if (cell == GetOtherPlayer(currentPlayer))
         {
-            worm.cells[worm.length++] = Cells[backColumn][backRow];
-            EvalNum[backColumn][backRow] = EvalCount;
+            break;
+        }
+        row--;
+        column += stepDir;
+    }
+    row++;
+    column -= stepDir;
+
+    // Walk back up the diagonal, finding empties and our player types
+    while (column < Game::NUMBER_OF_COLUMNS &&
+        column >= 0 &&
+        row < Game::NUMBER_OF_ROWS &&
+        row >= 0)
+    {
+        auto& cell = Cells[column][row];
+        if (cell != GetOtherPlayer(currentPlayer))
+        {
+            worm.cells[worm.length++] = cell;
+            EvalNum[column][row] = EvalCount;
         }
         else
         {
             break;
         }
+        column -= stepDir;
+        row++;
     }
-
-    worm.cells[worm.length++] = currentPlayer;
 }
 
+// Get all the worms, add their scores
 int Game::EvaluatePosition()
 {
     int score = 0;
-    auto currentPlayer = CurrentState == CurrentGameState::YellowToPlay ? CellContent::Yellow : CellContent::Red;
+    auto currentPlayer = GetCurrentPlayer();
 
-    Worm vWorm;
-    Worm hWorm;
-    Worm dWorm;
+    Worm worm;
 
     EvalCount++;
     for (int column = 0; column < Game::NUMBER_OF_COLUMNS; column++)
     {
-        GetVerticalWorm(vWorm, currentPlayer, column);
-
-        int vWormScore = 0;
-        if (vWorm.length > 0)
-        {
-            vWormScore = EvaluateWorm(vWorm);
-        }
-
-        std::cout << "C" << std::to_string(column) << " : VWorm: " << vWormScore << std::endl;
-        score += vWormScore;
+        GetVerticalWorm(worm, currentPlayer, column);
+        score += EvaluateWorm(worm);
     }
 
     EvalCount++;
     for (int column = 0; column < Game::NUMBER_OF_COLUMNS; column++)
     {
-        GetHorizontalWorm(hWorm, currentPlayer, column);
-
-        int hWormScore = 0;
-        if (hWorm.length > 0)
-        {
-            hWormScore = EvaluateWorm(hWorm);
-        }
-
-        std::cout << "C" << std::to_string(column) << " : HWorm: " << hWormScore << std::endl;
-        score += hWormScore;
+        GetHorizontalWorm(worm, currentPlayer, column);
+        score += EvaluateWorm(worm);
     }
 
     EvalCount++;
     for (int column = 0; column < Game::NUMBER_OF_COLUMNS; column++)
     {
-        int dWormScore = 0;
-        GetDiagonalWorm(dWorm, currentPlayer, column, false);
-        if (dWorm.length > 0)
+        GetDiagonalWorm(worm, currentPlayer, column, false);
+        if (worm.length >= 4)
         {
-            dWormScore += EvaluateWorm(dWorm);
+            std::cout << "backdiag: " << std::endl;
         }
+        score += EvaluateWorm(worm);
+    }
 
-        GetDiagonalWorm(dWorm, currentPlayer, column, true);
-        if (dWorm.length > 0)
+    EvalCount++;
+    for (int column = 0; column < Game::NUMBER_OF_COLUMNS; column++)
+    {
+        GetDiagonalWorm(worm, currentPlayer, column, true);
+        if (worm.length >= 4)
         {
-            dWormScore += EvaluateWorm(dWorm);
+            std::cout << "frontdiag: " << std::endl;
         }
-        dWormScore /= 2;
-        std::cout << "C" << std::to_string(column) << " : DWorm: " << dWormScore << std::endl;
-        score += dWormScore;
+        score += EvaluateWorm(worm);
     }
     return score;
 }
